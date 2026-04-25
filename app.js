@@ -66,21 +66,39 @@ async function fetchAlerts() {
 }
 
 function getPrediction(historyData) {
-    if (historyData.length < 2) return "Not enough data to predict.";
-    const recent = historyData.slice(-5);
+    if (historyData.length < 5) return "Not enough data to predict.";
+
+    // ใช้ 10 ค่าล่าสุด
+    const recent = historyData.slice(-10);
     const times = recent.map(d => new Date(d.timestamp).getTime());
     const levels = recent.map(d => d.distance);
-    const timeDiff = times[times.length-1] - times[0];
-    const levelDiff = levels[levels.length-1] - levels[0];
-    if (timeDiff === 0 || levelDiff >= 0) return "✅ Water level is stable or falling.";
-    const ratePerMs = levelDiff / timeDiff;
-    const currentLevel = levels[levels.length-1];
-    const distanceToRed = currentLevel - RED_THRESHOLD;
-    if (distanceToRed <= 0) return "🔴 Already at danger level!";
-    const minutesToRed = Math.round((distanceToRed / Math.abs(ratePerMs)) / 60000);
+
+    // คำนวณ linear regression
+    const n = recent.length;
+    const sumX = times.reduce((a, b) => a + b, 0);
+    const sumY = levels.reduce((a, b) => a + b, 0);
+    const sumXY = times.reduce((sum, t, i) => sum + t * levels[i], 0);
+    const sumX2 = times.reduce((sum, t) => sum + t * t, 0);
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // slope บวก = น้ำขึ้น, ลบ = น้ำลง
+    if (slope >= 0) return "✅ Water level is stable or falling.";
+
+    const currentTime = times[times.length - 1];
+    const currentLevel = levels[levels.length - 1];
+
+    if (currentLevel <= RED_THRESHOLD) return "🔴 Already at danger level!";
+
+    const timeToRed = (RED_THRESHOLD - intercept - slope * currentTime) / slope;
+    const minutesToRed = Math.round((timeToRed - currentTime) / 60000);
+
+    if (minutesToRed <= 0) return "🔴 Danger level reached imminently!";
     if (minutesToRed < 60) return `⚠️ Predicted to reach danger level in ~${minutesToRed} minutes`;
-    return `⚠️ Predicted to reach danger level in ~${Math.round(minutesToRed/60)} hours`;
+    return `⚠️ Predicted to reach danger level in ~${Math.round(minutesToRed / 60)} hours`;
 }
+
 
 function createMarkers(data) {
     const redPoints = [];
@@ -259,5 +277,5 @@ searchBox.addEventListener('change', function() {
 });
 
 function refreshApp() { initClient(); }
-setInterval(refreshApp, 10000); // refresh ทุก 10 วินาทีอัตโนมัติ
+setInterval(refreshApp, 5000); // refresh ทุก 5 วินาทีอัตโนมัติ
 
