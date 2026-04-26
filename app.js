@@ -3,7 +3,7 @@ const API_KEY = 'AIzaSyCnBiWANprtZ5enaHcUint0lrkcpQUF0tU';
 const RED_THRESHOLD = 20;
 
 const map = L.map('map').setView([7.9519, 98.3381], 11);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
 }).addTo(map);
 
