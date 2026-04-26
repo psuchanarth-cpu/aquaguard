@@ -50,10 +50,23 @@ async function fetchHistory(sensorId) {
     const data = res.result.values;
     if (!data || data.length < 2) return [];
     const oneDayAgo = Date.now() - 86400000;
-    return data.slice(1)
+
+    const raw = data.slice(1)
         .filter(row => row[1] == sensorId && new Date(row[0]).getTime() > oneDayAgo)
         .filter(row => parseFloat(row[2]) < 400)
         .map(row => ({ timestamp: row[0], distance: parseFloat(row[2]) }));
+
+    if (raw.length < 4) return raw;
+
+    // IQR Filter
+    const sorted = [...raw].sort((a, b) => a.distance - b.distance);
+    const q1 = sorted[Math.floor(sorted.length * 0.25)].distance;
+    const q3 = sorted[Math.floor(sorted.length * 0.75)].distance;
+    const iqr = q3 - q1;
+    const lower = q1 - 1.5 * iqr;
+    const upper = q3 + 1.5 * iqr;
+
+    return raw.filter(d => d.distance >= lower && d.distance <= upper);
 }
 
 async function fetchAlerts() {
@@ -66,9 +79,19 @@ async function fetchAlerts() {
     return data.slice(1).slice(-5).reverse();
 }
 
+function movingAverage(data, window = 3) {
+    return data.map((d, i) => {
+        const start = Math.max(0, i - window + 1);
+        const slice = data.slice(start, i + 1);
+        const avg = slice.reduce((sum, v) => sum + v.distance, 0) / slice.length;
+        return { ...d, distance: avg };
+    });
+}
+
 function getPrediction(historyData) {
     if (historyData.length < 5) return "Not enough data to predict.";
-    const recent = historyData.slice(-10);
+    const smoothed = movingAverage(historyData, 3);
+    const recent = smoothed.slice(-10);
     const times = recent.map(d => new Date(d.timestamp).getTime());
     const levels = recent.map(d => d.distance);
     const n = recent.length;
