@@ -3,8 +3,8 @@ const API_KEY = 'AIzaSyCnBiWANprtZ5enaHcUint0lrkcpQUF0tU';
 const RED_THRESHOLD = 20;
 
 const map = L.map('map').setView([7.9519, 98.3381], 11);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
 }).addTo(map);
 
 const modal = document.getElementById("modal");
@@ -17,10 +17,10 @@ let markers = [];
 let circles = [];
 
 function getColor(status) {
-    if (status === 'Green') return 'green';
-    if (status === 'Yellow') return 'yellow';
-    if (status === 'Red') return 'red';
-    return 'blue';
+    if (status === 'Green') return '#00cc66';
+    if (status === 'Yellow') return '#ffaa00';
+    if (status === 'Red') return '#ff4444';
+    return '#4fc3f7';
 }
 
 function calculateCenter(points) {
@@ -52,6 +52,7 @@ async function fetchHistory(sensorId) {
     const oneDayAgo = Date.now() - 86400000;
     return data.slice(1)
         .filter(row => row[1] == sensorId && new Date(row[0]).getTime() > oneDayAgo)
+        .filter(row => parseFloat(row[2]) < 400)
         .map(row => ({ timestamp: row[0], distance: parseFloat(row[2]) }));
 }
 
@@ -67,38 +68,26 @@ async function fetchAlerts() {
 
 function getPrediction(historyData) {
     if (historyData.length < 5) return "Not enough data to predict.";
-
-    // ใช้ 10 ค่าล่าสุด
     const recent = historyData.slice(-10);
     const times = recent.map(d => new Date(d.timestamp).getTime());
     const levels = recent.map(d => d.distance);
-
-    // คำนวณ linear regression
     const n = recent.length;
     const sumX = times.reduce((a, b) => a + b, 0);
     const sumY = levels.reduce((a, b) => a + b, 0);
     const sumXY = times.reduce((sum, t, i) => sum + t * levels[i], 0);
     const sumX2 = times.reduce((sum, t) => sum + t * t, 0);
-
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
     const intercept = (sumY - slope * sumX) / n;
-
-    // slope บวก = น้ำขึ้น, ลบ = น้ำลง
     if (slope >= 0) return "✅ Water level is stable or falling.";
-
     const currentTime = times[times.length - 1];
     const currentLevel = levels[levels.length - 1];
-
     if (currentLevel <= RED_THRESHOLD) return "🔴 Already at danger level!";
-
     const timeToRed = (RED_THRESHOLD - intercept - slope * currentTime) / slope;
     const minutesToRed = Math.round((timeToRed - currentTime) / 60000);
-
     if (minutesToRed <= 0) return "🔴 Danger level reached imminently!";
     if (minutesToRed < 60) return `⚠️ Predicted to reach danger level in ~${minutesToRed} minutes`;
     return `⚠️ Predicted to reach danger level in ~${Math.round(minutesToRed / 60)} hours`;
 }
-
 
 function createMarkers(data) {
     const redPoints = [];
@@ -130,7 +119,7 @@ function createMarkers(data) {
             const center = calculateCenter(group);
             const radius = calculateRadius(center, group) * 1000;
             circles.push(L.circle(center, {
-                color: 'red', fillColor: '#f03', fillOpacity: 0.2, radius
+                color: '#ff4444', fillColor: '#ff4444', fillOpacity: 0.15, radius
             }).addTo(map));
         });
     }
@@ -138,20 +127,30 @@ function createMarkers(data) {
     data.forEach(row => {
         const lat = parseFloat(row.latitude);
         const lng = parseFloat(row.longitude);
-        const sensorId = row.sensor_id || row.H || '';
+        const sensorId = row.sensor_id || '';
 
         const marker = L.circleMarker([lat, lng], {
-            color: getColor(row.status), radius: 8, fillOpacity: 1
+            color: getColor(row.status),
+            fillColor: getColor(row.status),
+            radius: 10,
+            fillOpacity: 1,
+            weight: 2
         }).addTo(map);
 
         marker.on('click', async function() {
             modalInfo.innerHTML = `
-                <p><strong>Location:</strong> ${row.info || ''}</p>
-                <p>Loading data...</p>`;
+                <div style="padding:20px;color:#fff;">
+                    <p><strong>${row.info || ''}</strong></p>
+                    <p style="color:#aaa;">Loading data...</p>
+                </div>`;
             modal.style.display = "flex";
 
             const historyData = await fetchHistory(sensorId);
             const prediction = getPrediction(historyData);
+            const currentDistance = row['distance'] || '--';
+
+            const statusColor = row.status === 'Red' ? '#ff4444' : row.status === 'Yellow' ? '#ffaa00' : '#00cc66';
+            const statusLabel = row.status === 'Red' ? 'DANGER' : row.status === 'Yellow' ? 'CAUTION' : 'CLEAR';
 
             const labels = historyData.map(d => {
                 const date = new Date(d.timestamp);
@@ -160,41 +159,40 @@ function createMarkers(data) {
             const values = historyData.map(d => d.distance);
 
             modalInfo.innerHTML = `
-                const statusColor = row.status === 'Red' ? '#ff4444' : row.status === 'Yellow' ? '#ffaa00' : '#00cc66';
-const statusLabel = row.status === 'Red' ? 'DANGER' : row.status === 'Yellow' ? 'CAUTION' : 'CLEAR';
-const currentDistance = row['distance'] || '--';
+<div style="background:#0d1117;color:#fff;padding:20px;font-family:Arial,sans-serif;">
 
-modalInfo.innerHTML = `
-<div style="background:#fff;color:#000;border-radius:16px;padding:20px;font-family:Arial,sans-serif;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div>
-            <h2 style="margin:0;font-size:20px;">${row.info || ''}</h2>
-            <p style="margin:4px 0 0;color:#888;font-size:13px;">📍 Phuket, Thailand</p>
+            <h2 style="margin:0;font-size:20px;color:#fff;">${row.info || ''}</h2>
+            <p style="margin:4px 0 0;color:#aaa;font-size:13px;">📍 Phuket, Thailand</p>
         </div>
         <div style="background:${statusColor}22;border:1px solid ${statusColor};border-radius:20px;padding:6px 14px;color:${statusColor};font-weight:bold;font-size:13px;">
             ● ${statusLabel}
         </div>
     </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-        <div style="background:#f5f5f5;border-radius:12px;padding:14px;">
-            <div style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Water Distance</div>
-            <div style="font-size:32px;font-weight:bold;margin-top:4px;">${currentDistance} <span style="font-size:14px;color:#888;">cm</span></div>
+        <div style="background:#1a2035;border-radius:12px;padding:14px;">
+            <div style="color:#aaa;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Water Distance</div>
+            <div style="font-size:32px;font-weight:bold;margin-top:4px;color:#4fc3f7;">${currentDistance} <span style="font-size:14px;color:#aaa;">cm</span></div>
         </div>
-        <div style="background:#f5f5f5;border-radius:12px;padding:14px;">
-            <div style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Danger Threshold</div>
-            <div style="font-size:32px;font-weight:bold;margin-top:4px;">${RED_THRESHOLD} <span style="font-size:14px;color:#888;">cm</span></div>
+        <div style="background:#1a2035;border-radius:12px;padding:14px;">
+            <div style="color:#aaa;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Danger Threshold</div>
+            <div style="font-size:32px;font-weight:bold;margin-top:4px;color:#ff4444;">${RED_THRESHOLD} <span style="font-size:14px;color:#aaa;">cm</span></div>
         </div>
     </div>
-    <div style="background:#fff3f3;border:1px solid #ffaaaa;border-radius:12px;padding:14px;margin-bottom:16px;">
-        <div style="font-size:13px;color:#cc0000;font-weight:bold;">⚠️ AI Prediction: ${prediction.replace('⚠️','').replace('✅','').replace('🔴','').trim()}</div>
+
+    <div style="background:#1a1a2e;border:1px solid #ff444466;border-radius:12px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:13px;color:#ffaa00;font-weight:bold;">⚠️ AI Prediction: ${prediction.replace('⚠️','').replace('✅','').replace('🔴','').trim()}</div>
     </div>
-    <div style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">📈 24-Hour History</div>
-    <div style="background:#f5f5f5;border-radius:12px;padding:12px;">
+
+    <div style="color:#aaa;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">📈 24-Hour History</div>
+    <div style="background:#1a2035;border-radius:12px;padding:12px;">
         <canvas id="waterChart" height="120"></canvas>
     </div>
+
 </div>
 `;
-
 
             if (historyData.length > 0) {
                 const ctx = document.getElementById('waterChart').getContext('2d');
@@ -206,31 +204,44 @@ modalInfo.innerHTML = `
                             {
                                 label: 'Water Distance (cm)',
                                 data: values,
-                                borderColor: 'blue',
-                                backgroundColor: 'rgba(0,0,255,0.1)',
-                                tension: 0.3,
-                                fill: true
+                                borderColor: '#4fc3f7',
+                                backgroundColor: 'rgba(79,195,247,0.1)',
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 2
                             },
                             {
                                 label: 'Danger Level',
                                 data: Array(labels.length).fill(RED_THRESHOLD),
-                                borderColor: 'red',
+                                borderColor: '#ff4444',
                                 borderDash: [5,5],
-                                pointRadius: 0
+                                pointRadius: 0,
+                                fill: false
                             }
                         ]
                     },
                     options: {
                         responsive: true,
+                        plugins: {
+                            legend: { labels: { color: '#aaa' } }
+                        },
                         scales: {
-                            y: { title: { display: true, text: 'cm' } },
-                            x: { title: { display: true, text: 'Time' } }
+                            y: {
+                                title: { display: true, text: 'cm', color: '#aaa' },
+                                ticks: { color: '#aaa' },
+                                grid: { color: '#2a3050' }
+                            },
+                            x: {
+                                title: { display: true, text: 'Time', color: '#aaa' },
+                                ticks: { color: '#aaa', maxTicksLimit: 6 },
+                                grid: { color: '#2a3050' }
+                            }
                         }
                     }
                 });
             } else {
                 document.getElementById('waterChart').outerHTML =
-                    '<p style="color:gray;">No history data yet.</p>';
+                    '<p style="color:#aaa;text-align:center;padding:20px;">No history data yet.</p>';
             }
         });
 
@@ -248,13 +259,13 @@ async function loadAlertLog() {
     if (!container) return;
 
     if (alerts.length === 0) {
-        container.innerHTML = '<p style="color:gray;">No alerts recorded yet.</p>';
+        container.innerHTML = '<p style="color:#aaa;font-size:13px;">No alerts recorded yet.</p>';
         return;
     }
 
     container.innerHTML = alerts.map(row => {
         const time = new Date(row[0]).toLocaleString();
-        return `<div style="padding:8px;border-bottom:1px solid #eee;">
+        return `<div style="padding:8px 0;border-bottom:1px solid #1a2035;font-size:13px;color:#eee;">
             🔴 <strong>${time}</strong> — ${row[1]} reached danger level (${row[2]} cm)
         </div>`;
     }).join('');
@@ -302,5 +313,4 @@ searchBox.addEventListener('change', function() {
 });
 
 function refreshApp() { initClient(); }
-setInterval(refreshApp, 5000); // refresh ทุก 5 วินาทีอัตโนมัติ
-
+setInterval(refreshApp, 10000);
