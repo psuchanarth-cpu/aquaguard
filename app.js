@@ -160,16 +160,41 @@ function createMarkers(data) {
             const values = historyData.map(d => d.distance);
 
             modalInfo.innerHTML = `
-                <p><strong>Location:</strong> ${row.info || ''}</p>
-                ${row.image_url ? `<img src="${row.image_url}" style="width:100%;max-height:150px;object-fit:cover;border-radius:8px;" />` : ''}
-                <p><strong>Water distance from shore:</strong> ${row.additional_info_1 || ''}</p>
-                <p><strong>Status:</strong> ${row.additional_info_2 || ''}</p>
-                <hr>
-                <p><strong>📊 Prediction:</strong> ${prediction}</p>
-                <hr>
-                <p><strong>📈 24-Hour History</strong></p>
-                <canvas id="waterChart" height="120"></canvas>
-            `;
+                const statusColor = row.status === 'Red' ? '#ff4444' : row.status === 'Yellow' ? '#ffaa00' : '#00cc66';
+const statusLabel = row.status === 'Red' ? 'DANGER' : row.status === 'Yellow' ? 'CAUTION' : 'CLEAR';
+const currentDistance = row['distance'] || '--';
+
+modalInfo.innerHTML = `
+<div style="background:#fff;color:#000;border-radius:16px;padding:20px;font-family:Arial,sans-serif;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+            <h2 style="margin:0;font-size:20px;">${row.info || ''}</h2>
+            <p style="margin:4px 0 0;color:#888;font-size:13px;">📍 Phuket, Thailand</p>
+        </div>
+        <div style="background:${statusColor}22;border:1px solid ${statusColor};border-radius:20px;padding:6px 14px;color:${statusColor};font-weight:bold;font-size:13px;">
+            ● ${statusLabel}
+        </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div style="background:#f5f5f5;border-radius:12px;padding:14px;">
+            <div style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Water Distance</div>
+            <div style="font-size:32px;font-weight:bold;margin-top:4px;">${currentDistance} <span style="font-size:14px;color:#888;">cm</span></div>
+        </div>
+        <div style="background:#f5f5f5;border-radius:12px;padding:14px;">
+            <div style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Danger Threshold</div>
+            <div style="font-size:32px;font-weight:bold;margin-top:4px;">${RED_THRESHOLD} <span style="font-size:14px;color:#888;">cm</span></div>
+        </div>
+    </div>
+    <div style="background:#fff3f3;border:1px solid #ffaaaa;border-radius:12px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:13px;color:#cc0000;font-weight:bold;">⚠️ AI Prediction: ${prediction.replace('⚠️','').replace('✅','').replace('🔴','').trim()}</div>
+    </div>
+    <div style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">📈 24-Hour History</div>
+    <div style="background:#f5f5f5;border-radius:12px;padding:12px;">
+        <canvas id="waterChart" height="120"></canvas>
+    </div>
+</div>
+`;
+
 
             if (historyData.length > 0) {
                 const ctx = document.getElementById('waterChart').getContext('2d');
