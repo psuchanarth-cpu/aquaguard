@@ -336,4 +336,5 @@ searchBox.addEventListener('change', function() {
 });
 
 function refreshApp() { initClient(); }
-setInterval(refreshApp, 10000);
+setInterval(refreshApp, 3000);
+
