@@ -1,6 +1,6 @@
 const SPREADSHEET_ID = '1rTObZuGVmmVFPsOuNxrqFOBQItCQVawjizfvmYkBAcw';
 const API_KEY = 'AIzaSyCnBiWANprtZ5enaHcUint0lrkcpQUF0tU';
-const RED_THRESHOLD = 6;
+const RED_THRESHOLD = 12;
 
 const map = L.map('map').setView([7.9519, 98.3381], 11);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
