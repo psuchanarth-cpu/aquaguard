@@ -1,0 +1,37 @@
+{
+  "aisrg_version": "1.1",
+  "provider": {
+    "name": "AquaGuard",
+    "description": "Real-time flood monitoring and early warning system for Phuket, Thailand. Monitors water levels across flood-risk zones using ultrasonic sensors. Alert levels: GREEN (safe), YELLOW (caution), RED (danger).",
+    "website": "https://psuchanarth-cpu.github.io/aquaguard/"
+  },
+  "authentication": {
+    "methods_supported": []
+  },
+  "actions": [
+    {
+      "action_id": "get_realtime_status",
+      "description": "Get current real-time water level and flood alert status for all monitored zones in Phuket.",
+      "security_level": "none",
+      "endpoint": "https://script.google.com/macros/s/AKfycbzVMavzeru3oLKz8Y60wqLGohGjQv6-93Geq9JcviHQvZASJWOHbBT7dr4Yg-ooEqaBYw/exec?action=status",
+      "method": "GET",
+      "parameters": [],
+      "responses": {
+        "success": "Zone {zone}: Water level {distance_cm}cm — Alert: {alert_level}. {message}",
+        "failure": "Unable to retrieve flood data."
+      }
+    },
+    {
+      "action_id": "get_24h_history",
+      "description": "Get 24-hour historical water level readings for flood trend analysis in Phuket zones.",
+      "security_level": "none",
+      "endpoint": "https://script.google.com/macros/s/AKfycbzVMavzeru3oLKz8Y60wqLGohGjQv6-93Geq9JcviHQvZASJWOHbBT7dr4Yg-ooEqaBYw/exec?action=history",
+      "method": "GET",
+      "parameters": [],
+      "responses": {
+        "success": "Last 24 hours: {total_readings} readings recorded.",
+        "failure": "Unable to retrieve historical data."
+      }
+    }
+  ]
+}
